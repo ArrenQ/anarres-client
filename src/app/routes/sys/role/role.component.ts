@@ -6,9 +6,11 @@ import { RoleVO } from '@core';
 import { ACLService } from '@delon/acl';
 import { SFSchema } from '@delon/form';
 import { _HttpClient } from '@delon/theme';
-import { AclColDef, IGridDataSource, NgxGridTableComponent, NgxGridTableConstants } from '@shared';
+import { AclColDef, asFilterInputPropertiesUI, IFilter, IGridDataSource, NgxGridTableComponent, NgxGridTableConstants } from '@shared';
+import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NzResizeEvent } from 'ng-zorro-antd/resizable';
+import { SfQueryFormComponent } from '../../../shared/components/ngx-grid-table/sf-query-form/sf-query-form.component';
 import { DataSourceUtils } from '../../DataSourceUtils';
 import { SysRoleCreateComponent } from './modal/create.component';
 import { SysRoleEditComponent } from './modal/edit.component';
@@ -20,14 +22,26 @@ import { SysRoleViewComponent } from './modal/view.component';
   templateUrl: './role.component.html',
 })
 export class SysRoleComponent implements OnInit {
-  // properties 的定义为 filter-input.widget.ts -> FilterSFUISchemaItem 接口
-  // 查询字段配置
-  schema: SFSchema = {
+  // properties 的定义为 filter-input.widget.ts -> FilterInputUISchema 接口
+  // id会转换为 { type: 'integer', title: 'id', ui: { widget: 'filter-input', filterType: 'number', options: ['equals'] } }
+  schema: SFSchema = asFilterInputPropertiesUI({
     properties: {
       id: { type: 'integer', title: 'id', ui: { options: ['equals'] } },
       role: { type: 'string', title: '角色标识', ui: { options: ['contains'] } },
       name: { type: 'string', title: '名称', ui: { options: ['contains'] } },
       description: { type: 'string', title: '简介', ui: { options: ['contains'] } },
+      roleType: {
+        type: 'array',
+        title: '角色类型',
+        ui: {
+          options: ['in'],
+          selectValues: [
+            { label: '用户角色', value: 'USER_ROLE' },
+            { label: '组织角色', value: 'ORG_ROLE' },
+            { label: '职位角色', value: 'POS_ROLE' },
+          ],
+        },
+      },
       enabled: {
         type: 'array',
         title: '是否启用',
@@ -52,7 +66,7 @@ export class SysRoleComponent implements OnInit {
       // aclTmpl: 'POST:/{}/OUT',
       // acl: { ability: ['POST:/TEST0'] },
     },
-  };
+  });
 
   // 表格配置
   columnDefs: AclColDef[] = [
@@ -83,14 +97,12 @@ export class SysRoleComponent implements OnInit {
   @ViewChild(NgxGridTableComponent)
   table!: NgxGridTableComponent;
 
-  constructor(private http: _HttpClient, private aclService: ACLService, private modal: NzModalService) {
+  constructor(private http: _HttpClient, private aclService: ACLService, private msgSvr: NzMessageService, private modal: NzModalService) {
     this.gridOptions = {
       enableCharts: false,
       columnDefs: this.columnDefs,
       enableRangeSelection: true, // 范围选择
-      getRowNodeId: (data) => {
-        return data.id;
-      },
+      getRowNodeId: this.idGetter,
       onFirstDataRendered(event: FirstDataRenderedEvent): void {
         event.columnApi.autoSizeAllColumns();
       },
@@ -103,14 +115,34 @@ export class SysRoleComponent implements OnInit {
   onGridReady(e: { event: GridReadyEvent; gridTable: NgxGridTableComponent }): void {
     // 添加右键菜单
     this.table.addMenu({
-      name: 'test',
+      name: '删除',
       show: 'selected',
       acl: { ability: ['role:delete'] },
       callback: (selected) => {
-        console.log(selected);
+        this.http.delete(`/api/role/delete/${this.idGetter(selected)}`).subscribe((value) => {
+          this.msgSvr.success('删除成功');
+          this.table.refresh();
+        });
       },
     });
     this.table.columnApi.autoSizeAllColumns();
+  }
+
+  /**
+   * IFilter表示查询条件。
+   * 表格内置的 SfQueryFormComponent 将并根 SFSchema 来生成 IFilter 对象数组
+   * 可以通过sf.value 将会获得每一个属性UI中填入的值。如果是 {widget: 'filter-input'} 的字段才自动将控件内填入的值转成 IFilter 对象
+   * 其他非 filter-input 的控件，需要开发人员手动转换。
+   * 如果开发人员需要给表格额外添加条件，也可以在这里加入更多的IFilter
+   *
+   * 自动生成的代码会将所有 SFSchema 的 UI 转成 filter-input，因此，默认是直接返回所有 filter
+   * @param filter 所有filter-input生成的 IFilter对象
+   * @param sf 表格的form对象。
+   * @result 返回处理后的查询条件数组。
+   */
+  filterHand(filter: IFilter[], sf: SfQueryFormComponent): IFilter[] {
+    //不做任何处理，直接返回表格生成的filter对象数组。
+    return filter;
   }
 
   onPageIndexChange(index: number): void {
@@ -125,11 +157,9 @@ export class SysRoleComponent implements OnInit {
         nzMaskClosable: false,
       })
       .afterClose.subscribe((res) => {
-        if (res.result.success) {
-          this.table.refresh();
-        }
+        this.table.refresh();
         if (res.assign) {
-          this.openAssignResources(res.result.data);
+          this.openAssignResources(res.result);
         }
       });
   }
@@ -143,9 +173,7 @@ export class SysRoleComponent implements OnInit {
         nzMaskClosable: false,
       })
       .afterClose.subscribe((result) => {
-        if (result.success) {
-          this.table.refresh();
-        }
+        this.table.refresh();
       });
   }
 
@@ -168,6 +196,10 @@ export class SysRoleComponent implements OnInit {
 
   closeAssignResources(): void {
     this.assignRole = null;
+  }
+
+  idGetter(data: any): any {
+    return data.id;
   }
 
   onResize($event: NzResizeEvent) {

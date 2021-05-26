@@ -44,7 +44,6 @@ import {
   PaginationCfg,
   TreeDataCfg,
 } from '../ngx-grid-table-model';
-import { asRowQueryPropertiesUI } from '../ngx-grid-table-utils';
 import { SfQueryFormComponent } from '../sf-query-form/sf-query-form.component';
 
 /**
@@ -86,8 +85,7 @@ export class NgxGridTableComponent implements OnInit, OnDestroy {
   /** 表格页面所在的url */
   currentUrl: string;
 
-  _searchSchema!: SFSchema;
-
+  private haveInit = false;
   // ================================== 基本配置（外部） =============================
   /** 是否为全屏状态 */
   @Input() fullscreen = false;
@@ -128,15 +126,13 @@ export class NgxGridTableComponent implements OnInit, OnDestroy {
   /** 数据源 */
   @Input() dataSource!: IGridDataSource<any>;
   /** 表单schema */
-  @Input() set searchSchema(schema: SFSchema) {
-    this._searchSchema = asRowQueryPropertiesUI(schema);
-  }
+  @Input() searchSchema!: SFSchema;
   /** 初始表单数据 */
   @Input() initFormData!: any;
 
   @Input() customPageView!: TemplateRef<any>;
 
-  @Input() filterHand!: (filters: IFilter[]) => IFilter[];
+  @Input() filterHand!: (filters: IFilter[], form: SfQueryFormComponent) => IFilter[];
 
   @Input() topToolPanel!: TemplateRef<any>;
   @Input() bottomToolPanel!: TemplateRef<any>;
@@ -147,6 +143,7 @@ export class NgxGridTableComponent implements OnInit, OnDestroy {
   @Output() pageSizeChange = new EventEmitter<number>();
   /** 表格就绪事件 */
   @Output() gridReady = new EventEmitter<{ event: GridReadyEvent; gridTable: NgxGridTableComponent }>();
+  @Output() gridReLoadReady = new EventEmitter<{ event: GridReadyEvent; gridTable: NgxGridTableComponent }>();
   /** 删除事件 */
   @Output() deleted = new EventEmitter<any>();
   @Output() dataLoadingChange = new EventEmitter<boolean>();
@@ -170,6 +167,12 @@ export class NgxGridTableComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    if (!this.haveInit) {
+      this.initGridOptions();
+    }
+  }
+
+  private initGridOptions() {
     // api 获取方法，用于给functions传递api对象
     const apiGetter: ApiGetter = { get: () => ({ api: this.api, columnApi: this.columnApi }) };
 
@@ -213,7 +216,12 @@ export class NgxGridTableComponent implements OnInit, OnDestroy {
       this.api.setServerSideDatasource(this.infiniteDataSource());
     }
 
-    this.gridReady.emit({ event, gridTable: this });
+    if (this.haveInit) {
+      this.gridReLoadReady.emit({ event, gridTable: this });
+    } else {
+      this.gridReady.emit({ event, gridTable: this });
+      this.haveInit = true;
+    }
 
     // 当网格数据就绪时
     // this.api.addEventListener('firstDataRendered', () => {
@@ -233,7 +241,7 @@ export class NgxGridTableComponent implements OnInit, OnDestroy {
       filters = [...this.form.filter];
     }
     if (this.filterHand) {
-      filters = [...this.filterHand(filters)];
+      filters = [...this.filterHand(filters, this.form)];
     }
     return filters;
   }
@@ -308,7 +316,7 @@ export class NgxGridTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const rowQuery: IRowQuery = clientSideAsRowQuery(this.api, pageNum, pageSize, this.filters());
+    const rowQuery: IRowQuery = clientSideAsRowQuery(this.api, this.columnApi, pageNum, pageSize, this.filters());
     Console.collapse('grid-table.component getData', 'indigoBg', 'queryParams', 'indigoOutline');
     console.log(rowQuery);
     console.groupEnd();

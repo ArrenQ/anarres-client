@@ -1,6 +1,7 @@
 import {
   AgEvent,
   ColDef,
+  ColumnApi,
   Constants,
   GetContextMenuItemsParams,
   GridApi,
@@ -232,14 +233,17 @@ function checkACL(columnDefs: (ColDef | ColGroupDef)[], acl: ACLService): void {
 export function buildSideBar(gridOptions: GridOptions): void {
   const sideBar = JSON.parse(JSON.stringify(NgxGridTableConstants.DEFAULT_SIDE_BAR));
   if (gridOptions.sideBar) {
-    let toolPanels = sideBar.toolPanels;
-    if (typeof gridOptions.sideBar === 'string') {
+    if (gridOptions.sideBar === 'default') {
+      gridOptions.sideBar = sideBar;
+    } else if (typeof gridOptions.sideBar === 'string') {
       // todo 整合
     } else if (typeof gridOptions.sideBar === 'boolean') {
       // todo 整合
     } else {
+      let toolPanels = sideBar.toolPanels;
       toolPanels = toolPanels.concat(gridOptions.sideBar.toolPanels || []);
       gridOptions.sideBar = { ...NgxGridTableConstants.DEFAULT_SIDE_BAR, ...gridOptions.sideBar, toolPanels };
+      gridOptions.sideBar.hiddenByDefault = true;
     }
   }
 }
@@ -351,8 +355,26 @@ export function initGridOptions(gridOptions: GridOptions, rowSelection: string, 
   };
 }
 
-export function clientSideAsRowQuery(api: GridApi, pageNum: number, pageSize: number, extFilter: IFilter[]): IRowQuery {
-  return asRowQuery(api.getFilterModel(), api.getSortModel(), pageNum, pageSize, extFilter);
+export function clientSideAsRowQuery(
+  api: GridApi,
+  columnApi: ColumnApi,
+  pageNum: number,
+  pageSize: number,
+  extFilter: IFilter[],
+): IRowQuery {
+  const sortModel = columnApi
+    .getColumnState()
+    .filter((value) => value.sort && value.sortIndex)
+    .sort((a, b) => {
+      // @ts-ignore
+      return a.sortIndex - b.sortIndex;
+    })
+    .map((value) => ({
+      colId: value.colId,
+      sort: value.sort,
+    }));
+  // @ts-ignore
+  return asRowQuery(api.getFilterModel(), sortModel, pageNum, pageSize, extFilter);
 }
 
 export function serverSideAsRowQuery(

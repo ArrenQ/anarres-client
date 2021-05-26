@@ -164,6 +164,7 @@ export function buildTreeData(
     }
     // @ts-ignore
     if (
+      parentId &&
       item[parentId] !== null &&
       // @ts-ignore
       item[parentId] !== undefined &&
@@ -207,7 +208,7 @@ export function incrementalObject(original: any, target: any): any | false {
  * @param size 拆分大小
  */
 export function arrayPartition<T>(items: Array<T>, size: number = 3): Array<Array<T>> {
-  return items.reduce((previousValue, currentValue) => {
+  return items.reduce((previousValue: Array<Array<T>>, currentValue) => {
     // @ts-ignore
     !previousValue.length || previousValue[previousValue.length - 1].length === size
       ? previousValue.push([currentValue])
@@ -256,6 +257,16 @@ export function sum(
     }
   });
   return result;
+}
+
+/**
+ * 把数组转换为一个{key:any}对象
+ *
+ * @param array 原数组
+ * @param f 数组类的单个对象转换为{key:any}
+ */
+export function arrayToObject<V, T>(array: Array<T>, f: (t: T, index: number) => { [key: string]: V }): { [key: string]: V } {
+  return array.map(f).reduce((previousValue, currentValue) => Object.assign({}, previousValue, currentValue), {});
 }
 
 export function groupBy(array: any[], f: (item: any) => any): { [key: string]: any[] } {

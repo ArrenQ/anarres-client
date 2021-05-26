@@ -25,7 +25,6 @@ export class SysMenuComponent implements OnInit {
       text: { type: 'string', title: '名称', minLength: 1 },
       code: { type: 'string', title: '编号', minLength: 4 },
       i18n: { type: 'string', title: '国际化', minLength: 1 },
-      group: { type: 'boolean', title: '菜单组', default: false },
       acl: { type: 'string', title: 'ACL', default: '' },
       reuse: { type: 'boolean', title: '复用', default: false },
       link: { type: 'string', title: '路由', minLength: 1, default: '#' },
@@ -65,6 +64,17 @@ export class SysMenuComponent implements OnInit {
   private getData(): void {
     // https://ng-alain.com/util/array/zh?#arrToTree
     this.http.get('/api/sys/menu/all').subscribe((res: Menu[]) => {
+      // res = res.map(item => {
+      //   if(item.acl) {
+      //     item.acl = JSON.parse(item.acl as string);
+      //   } else {
+      //     item.acl = {
+      //       role: [],
+      //       ability: []
+      //     }
+      //   }
+      //   return item;
+      // })
       this.data = this.arrSrv.arrToTreeNode(res, {
         titleMapName: 'text',
         parentIdMapName: 'parentId',

@@ -1,13 +1,18 @@
 import { GridApi } from '@ag-grid-community/core';
 import { ColDef, ColGroupDef } from '@ag-grid-community/core/dist/cjs/entities/colDef';
-import { SFSchema } from '@delon/form';
+import { SFSchema, SFUISchema } from '@delon/form';
+import { FilterInputUISchema } from '../../json-schema/widgets/filter-input-widget/filter-input.widget';
 import { DATE_FILTERS, NUMBER_FILTERS, SET_FILTERS, TEXT_FILTERS } from '../filter-input';
 
-export function asRowQueryPropertiesUI(schema: SFSchema): SFSchema {
+export function asFilterInputPropertiesUI(schema: SFSchema, ...ignores: string[]): SFSchema {
   if (!schema.properties) {
     return schema;
   }
+
   Object.keys(schema.properties).forEach((key: string) => {
+    if (-1 !== ignores.indexOf(key)) {
+      return;
+    }
     // @ts-ignore
     const value = schema.properties[key] as SFSchema;
 

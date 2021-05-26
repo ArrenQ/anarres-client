@@ -31,14 +31,17 @@ export class SysRoleEditComponent implements OnInit {
       name: {
         type: 'string',
         title: '名称',
-        pattern: '^\\w+$',
-        ui: {
-          widget: 'string',
-          placeholder: '角色唯一标识,不可重复,由字母,下划线,数字组合',
-          errors: {
-            pattern: '仅支持输入字母、下划线、数字',
-          },
-        },
+      },
+      roleType: {
+        type: 'string',
+        title: '角色类型',
+        enum: [
+          { label: '用户角色', value: 'USER_ROLE' },
+          { label: '组织角色', value: 'ORG_ROLE' },
+          { label: '职位角色', value: 'POS_ROLE' },
+        ],
+        default: true,
+        ui: { placeholder: '角色类型', widget: 'select' },
       },
       description: {
         type: 'string',
@@ -77,7 +80,7 @@ export class SysRoleEditComponent implements OnInit {
   ngOnInit(): void {}
 
   save(value: any) {
-    this.http.post(`/api/role/edit`, value).subscribe((res) => {
+    this.http.post(`/api/role/update`, value).subscribe((res) => {
       this.msgSrv.success('修改成功');
       this.modal.close(res);
     });
